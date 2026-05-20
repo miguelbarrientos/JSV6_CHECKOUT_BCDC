@@ -3,7 +3,6 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![Express Framework](https://img.shields.io/badge/express-4.x-lightgrey.svg?style=flat-square&logo=express)](https://expressjs.com/)
 [![PayPal SDK](https://img.shields.io/badge/paypal-JSv6-gold.svg?style=flat-square&logo=paypal)](https://developer.paypal.com/)
-[![Architecture](https://img.shields.io/badge/architecture-BFF%20%2F%20Proxy-orange.svg?style=flat-square)](#)
 
 Un demo técnico avanzado e interactivo para checkout web que integra **PayPal JavaScript SDK v6**, **PayPal Checkout Standard (Smart Buttons)**, **PayLater**, **PayPal Credit** y **Branded Card-Direct Checkout (BCDC)** mediante una arquitectura de servidor tipo **BFF (Backend-For-Frontend)**.
 
@@ -13,7 +12,7 @@ El objetivo principal de este proyecto es demostrar cómo desacoplar de manera s
 
 ## 🏗️ Arquitectura de la Solución (Flujo E2E)
 
-El siguiente diagrama ilustra la orquestación entre el navegador web, el servidor BFF local y las APIs REST de PayPal:
+El siguiente diagrama ilustra la orquestación entre el navegador web, el servidor BFF local y las APIs REST de PayPal. Se eliminaron los fondos estáticos de color para garantizar un contraste óptimo en temas claros y oscuros:
 
 ```mermaid
 sequenceDiagram
@@ -24,41 +23,37 @@ sequenceDiagram
 
     %% Configuración e Inicialización
     Cliente->>BFF: GET /api/config
-    BFF-->>Cliente: URL SDK, clientId, apiBase, env [Sandbox/Live]
+    BFF-->>Cliente: Configuración [clientId, env]
     Cliente->>PP: Cargar SDK v6 Core
-    PP-->>Cliente: PayPal JavaScript SDK v6
-    Cliente->>Cliente: Consultar elegibilidad (findEligibleMethods)
+    PP-->>Cliente: SDK v6 Core
+    Cliente->>Cliente: findEligibleMethods()
 
     %% Creación de Orden
-    rect rgb(240, 248, 255)
-        Note over Cliente, PP: Proceso de Creación de Orden
-        Cliente->>BFF: POST /api/orders (body: cart details, cmid)
-        alt Token no disponible o expirado
-            BFF->>PP: POST /v1/oauth2/token
-            PP-->>BFF: Access Token (se guarda en caché)
-        end
-        opt Merchant ID presente
-            BFF->>PP: PUT /v1/risk/transaction-contexts [STC]
-            PP-->>BFF: STC Aceptado (204 No Content)
-        end
-        BFF->>PP: POST /v2/checkout/orders [con request-id & headers]
-        PP-->>BFF: Orden creada (201 Created)
-        BFF-->>Cliente: Respuesta de Orden [enmascarada para logs]
+    Note over Cliente, PP: 1. Creación de Orden & STC (Prevención de Fraude)
+    Cliente->>BFF: POST /api/orders [CMID]
+    alt Token no disponible o expirado
+        BFF->>PP: POST /v1/oauth2/token
+        PP-->>BFF: Access Token
     end
+    opt Merchant ID presente (Llamada STC)
+        BFF->>PP: PUT /v1/risk/transaction-contexts (STC)
+        PP-->>BFF: 204 No Content
+    end
+    BFF->>PP: POST /v2/checkout/orders
+    PP-->>BFF: 201 Created (Orden creada)
+    BFF-->>Cliente: Orden creada (Enmascarada)
 
     %% Aprobación y Captura
-    rect rgb(255, 240, 245)
-        Note over Cliente, PP: Proceso de Captura y Detalles
-        Cliente->>Cliente: Flujo de Aprobación del Usuario
-        Cliente->>BFF: POST /api/orders/:id/capture [header: NegTest]
-        BFF->>PP: POST /v2/checkout/orders/:id/capture [con PayPal-Mock-Response]
-        PP-->>BFF: Orden Capturada [201/200] o error controlado
-        BFF-->>Cliente: Respuesta de Captura [enmascarada]
-        Cliente->>BFF: GET /api/orders/:id [Detalles enriquecidos]
-        BFF->>PP: GET /v2/checkout/orders/:id
-        PP-->>BFF: Detalles completos de la orden
-        BFF-->>Cliente: Detalles enriquecidos [payment_source, processor_response]
-    end
+    Note over Cliente, PP: 2. Aprobación, Captura y Consulta de Detalles
+    Cliente->>Cliente: Aprobación del usuario
+    Cliente->>BFF: POST /api/orders/:id/capture [Header NegTest]
+    BFF->>PP: POST /v2/checkout/orders/:id/capture [Header Mock]
+    PP-->>BFF: Orden Capturada (201/200)
+    BFF-->>Cliente: Pago Capturado (Enmascarado)
+    Cliente->>BFF: GET /api/orders/:id [Consulta Final]
+    BFF->>PP: GET /v2/checkout/orders/:id
+    PP-->>BFF: Detalles completos de la orden
+    BFF-->>Cliente: Detalles enriquecidos
 ```
 
 ---
@@ -183,7 +178,7 @@ El servidor Express expone una API limpia para desacoplar las interacciones del 
 | **`POST`** | `/api/orders` | Creación de orden | Genera una orden de compra en PayPal. Si hay `merchant_id` configurado, envía automáticamente STC. |
 | **`GET`** | `/api/orders/:id` | Consulta de orden | Consulta el estado detallado de una orden. Retorna campos enriquecidos de la fuente de pago. |
 | **`POST`** | `/api/orders/:id/capture` | Captura de orden | Realiza el cobro final de la orden. Soporta simulación mediante headers de pruebas negativas. |
-| **`PUT`** | `/api/stc` | Envío manual de STC | Permite enviar el Sender Transaction Context de forma explita fuera del flujo de creación de orden. |
+| **`PUT`** | `/api/stc` | Envío manual de STC | Permite enviar el Sender Transaction Context de forma explícita fuera del flujo de creación de orden. |
 
 ### 📝 Estructura de Respuesta del Proxy
 Las respuestas de operaciones REST (`POST /api/orders`, `POST /api/orders/:id/capture`, etc.) tienen un formato estandarizado que incluye trazas de diagnóstico simplificadas:
