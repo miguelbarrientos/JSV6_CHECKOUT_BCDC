@@ -93,37 +93,22 @@ sequenceDiagram
 
 ## 🚀 Instalación y Ejecución
 
-### 1. Clonar e Instalar Dependencias
+La solución está diseñada para ofrecer una **configuración cero (Zero Configuration)** en el primer arranque.
+
+### 1. Instalar Dependencias
 Instala los paquetes necesarios definidos en `package.json` (`express` y `dotenv`):
 ```bash
 npm install
 ```
 
-### 2. Configuración de Credenciales
-El servidor busca un archivo `.env` en la raíz del proyecto. Si no lo encuentra en el primer arranque, **creará uno automáticamente** con credenciales Sandbox públicas preconfiguradas para que puedas probar el demo inmediatamente.
-
-Para configurarlo manualmente, copia el archivo `.env.example` a un nuevo archivo `.env` e ingresa tus valores:
-```env
-# PayPal Sandbox Credentials
-SANDBOX_CLIENT_ID=your_sandbox_client_id_here
-SANDBOX_CLIENT_SECRET=your_sandbox_client_secret_here
-SANDBOX_MERCHANT_ID=your_sandbox_merchant_id_here
-
-# PayPal Live Credentials
-LIVE_CLIENT_ID=your_live_client_id_here
-LIVE_CLIENT_SECRET=your_live_client_secret_here
-LIVE_MERCHANT_ID=your_live_merchant_id_here
-```
-
-### 3. Levantar el Servidor
-
-* **Producción o Inicio Estándar**:
-  ```bash
-  npm start
-  ```
-* **Modo Desarrollo** (Con recarga automática en cambios usando `--watch` de Node.js):
+### 2. Levantar el Servidor
+* **Modo Desarrollo** (Con reinicio automático ante cambios usando `--watch` de Node.js):
   ```bash
   npm run dev
+  ```
+* **Producción o Arranque Estándar**:
+  ```bash
+  npm start
   ```
 
 El demo estará disponible inmediatamente en tu navegador:
@@ -133,6 +118,16 @@ El demo estará disponible inmediatamente en tu navegador:
 > Puedes cambiar el puerto por defecto estableciendo la variable de entorno `PORT`:
 > * **Linux / macOS (Bash)**: `PORT=3000 npm start`
 > * **Windows (PowerShell)**: `$env:PORT = 3000; npm start`
+
+---
+
+## 🔑 Gestión Dinámica de Credenciales
+
+> [!IMPORTANT]
+> **¡No necesitas configurar archivos a mano!**
+> 
+> 1. **Auto-generación de `.env`**: Al iniciar el servidor por primera vez, este detectará la ausencia del archivo `.env` y lo creará automáticamente con credenciales Sandbox públicas preconfiguradas para que puedas probar todo el flujo de checkout de inmediato.
+> 2. **Administrador de Credenciales (UI)**: Si deseas utilizar tus propias credenciales de Sandbox o producción (Live), simplemente haz clic en el botón **CREDS** en el panel de control interactivo de la interfaz de usuario. Este modal te permite ver, modificar y guardar tus claves directamente en el archivo `.env` en caliente, sin necesidad de abrir un editor de texto ni reiniciar el servidor.
 
 ---
 
