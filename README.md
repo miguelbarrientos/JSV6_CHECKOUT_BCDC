@@ -1,182 +1,191 @@
-# 💳 PayPal JSv6 Checkout + BCDC Server-Side Demo
+# PayPal JSv6 Checkout + BCDC Server-Side Demo
 
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18-blue.svg?style=flat-square&logo=node.js)](https://nodejs.org/)
 [![Express Framework](https://img.shields.io/badge/express-4.x-lightgrey.svg?style=flat-square&logo=express)](https://expressjs.com/)
 [![PayPal SDK](https://img.shields.io/badge/paypal-JSv6-gold.svg?style=flat-square&logo=paypal)](https://developer.paypal.com/)
 
-Un demo técnico avanzado e interactivo para checkout web que integra **PayPal JavaScript SDK v6**, **PayPal Checkout Standard (Smart Buttons)**, **PayLater**, **PayPal Credit** y **Branded Card-Direct Checkout (BCDC)** mediante una arquitectura de servidor tipo **BFF (Backend-For-Frontend)**.
+An advanced, interactive technical demo for web checkout that integrates **PayPal JavaScript SDK v6**, **PayPal Checkout Standard (Smart Buttons)**, **PayLater**, **PayPal Credit**, and **Branded Card-Direct Checkout (BCDC)** through a server-side **BFF (Backend-for-Frontend)** architecture.
 
-El objetivo principal de este proyecto es demostrar cómo desacoplar de manera segura la lógica del cliente y la del servidor, garantizando que el `client_secret` de PayPal permanezca oculto en el servidor y nunca se exponga al navegador, mientras se expone una interfaz rica y reactiva para el control del flujo del checkout.
+The main goal of this project is to demonstrate how to safely separate client-side and server-side responsibilities, keeping the PayPal `client_secret` hidden on the server and never exposing it to the browser, while still providing a rich interactive checkout control surface.
 
 ---
 
-## 🏗️ Arquitectura de la Solución (Flujo E2E)
+## Solution Architecture (End-to-End Flow)
 
-El siguiente diagrama ilustra la orquestación entre el navegador web, el servidor BFF local y las APIs REST de PayPal. Se eliminaron los fondos estáticos de color para garantizar un contraste óptimo en temas claros y oscuros:
+The following diagram shows the orchestration between the browser, the local BFF server, and PayPal REST APIs. Static colored backgrounds were intentionally avoided so the diagram keeps good contrast in both light and dark GitHub themes.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Cliente as "Navegador (app.js)"
-    participant BFF as "Servidor Express (server.js)"
-    participant PP as "API de PayPal"
+    actor Client as "Browser (app.js)"
+    participant BFF as "Express Server (server.js)"
+    participant PP as "PayPal API"
 
-    %% Configuración e Inicialización
-    Cliente->>BFF: GET /api/config
-    BFF-->>Cliente: Configuración [clientId, env]
-    Cliente->>PP: Cargar SDK v6 Core
-    PP-->>Cliente: SDK v6 Core
-    Cliente->>Cliente: findEligibleMethods()
+    %% Configuration and initialization
+    Client->>BFF: GET /api/config
+    BFF-->>Client: Configuration [clientId, env]
+    Client->>PP: Load SDK v6 Core
+    PP-->>Client: SDK v6 Core
+    Client->>Client: findEligibleMethods()
 
-    %% Creación de Orden
-    Note over Cliente, PP: 1. Creación de Orden & STC (Prevención de Fraude)
-    Cliente->>BFF: POST /api/orders [CMID]
-    alt Token no disponible o expirado
+    %% Order creation
+    Note over Client, PP: 1. Order Creation and STC (Fraud Prevention)
+    Client->>BFF: POST /api/orders [CMID]
+    alt Token missing or expired
         BFF->>PP: POST /v1/oauth2/token
         PP-->>BFF: Access Token
     end
-    opt Merchant ID presente (Llamada STC)
+    opt Merchant ID present (STC call)
         BFF->>PP: PUT /v1/risk/transaction-contexts (STC)
         PP-->>BFF: 204 No Content
     end
     BFF->>PP: POST /v2/checkout/orders
-    PP-->>BFF: 201 Created (Orden creada)
-    BFF-->>Cliente: Orden creada (Enmascarada)
+    PP-->>BFF: 201 Created (Order created)
+    BFF-->>Client: Order created (masked)
 
-    %% Aprobación y Captura
-    Note over Cliente, PP: 2. Aprobación, Captura y Consulta de Detalles
-    Cliente->>Cliente: Aprobación del usuario
-    Cliente->>BFF: POST /api/orders/:id/capture [Header NegTest]
-    BFF->>PP: POST /v2/checkout/orders/:id/capture [Header Mock]
-    PP-->>BFF: Orden Capturada (201/200)
-    BFF-->>Cliente: Pago Capturado (Enmascarado)
-    Cliente->>BFF: GET /api/orders/:id [Consulta Final]
+    %% Approval and capture
+    Note over Client, PP: 2. Approval, Capture, and Final Details Lookup
+    Client->>Client: Buyer approval
+    Client->>BFF: POST /api/orders/:id/capture [NegTest header]
+    BFF->>PP: POST /v2/checkout/orders/:id/capture [Mock header]
+    PP-->>BFF: Order captured (201/200)
+    BFF-->>Client: Payment captured (masked)
+    Client->>BFF: GET /api/orders/:id [Final lookup]
     BFF->>PP: GET /v2/checkout/orders/:id
-    PP-->>BFF: Detalles completos de la orden
-    BFF-->>Cliente: Detalles enriquecidos
+    PP-->>BFF: Full order details
+    BFF-->>Client: Enriched details
 ```
 
 ---
 
-## 📂 Estructura del Proyecto
+## Project Structure
 
 ```text
 .
-├── server.js                     # Servidor Express (BFF & Proxy REST PayPal)
-├── app.js                        # Lógica del frontend y orquestación del SDK v6
-├── index.html                    # Interfaz de usuario interactiva (UI)
-├── styles.css                    # Estilos CSS modernos y responsivos
-├── package.json                  # Scripts y dependencias de Node.js
-├── package-lock.json
-├── .env.example                  # Plantilla de variables de entorno
-├── .gitignore
-├── README.md                     # Esta guía del desarrollador
-└── docs_and_skill/
-    ├── SDD_JSV6_ES.md            # Solution Design Document (Español)
-    ├── SDD_JSV6_ES.pdf           # Solution Design Document PDF (Español)
-    ├── SDD_JSV6_EN.md            # Solution Design Document (Inglés)
-    ├── SDD_JSV6_EN.pdf           # Solution Design Document PDF (Inglés)
-    └── jsv6-bcdc-integration.skill # Definición de skill para agentes AI
+|-- server.js                       # Express server (BFF and PayPal REST proxy)
+|-- app.js                          # Frontend logic and SDK v6 orchestration
+|-- index.html                      # Interactive checkout UI
+|-- styles.css                      # Responsive CSS styles
+|-- package.json                    # Node.js scripts and dependencies
+|-- package-lock.json
+|-- .env.example                    # Environment variable template
+|-- .gitignore
+|-- README.md                       # This developer guide
+`-- docs_and_skill/
+    |-- SDD_JSV6_ES.md              # Solution Design Document (Spanish)
+    |-- SDD_JSV6_ES.pdf             # Solution Design Document PDF (Spanish)
+    |-- SDD_JSV6_EN.md              # Solution Design Document (English)
+    |-- SDD_JSV6_EN.pdf             # Solution Design Document PDF (English)
+    `-- jsv6-bcdc-integration.skill # AI agent skill definition
 ```
 
 ---
 
-## 🛠️ Requisitos del Entorno
+## Environment Requirements
 
-* **Node.js**: Versión `18` o superior (se utiliza `fetch` nativo para llamadas HTTP).
-* **Credenciales de PayPal** (Sandbox para pruebas, y opcionalmente Live):
-  * `client_id` (Identificador público)
-  * `client_secret` (Clave privada)
-  * `merchant_id` (Opcional, necesario para el flujo de atribución STC y multi-vendedor)
+- **Node.js**: version `18` or higher. The server uses native `fetch` for HTTP calls.
+- **PayPal credentials** for Sandbox testing and, optionally, Live:
+  - `client_id` (public identifier)
+  - `client_secret` (private secret)
+  - `merchant_id` (optional, required for STC attribution and multi-seller flows)
 
 ---
 
-## 🚀 Instalación y Ejecución
+## Installation and Running Locally
 
-La solución está diseñada para ofrecer una **configuración cero (Zero Configuration)** en el primer arranque.
+The project is designed to provide a zero-configuration first run.
 
-### 1. Instalar Dependencias
-Instala los paquetes necesarios definidos en `package.json` (`express` y `dotenv`):
+### 1. Install Dependencies
+
+Install the packages defined in `package.json` (`express` and `dotenv`):
+
 ```bash
 npm install
 ```
 
-### 2. Levantar el Servidor
-* **Modo Desarrollo** (Con reinicio automático ante cambios usando `--watch` de Node.js):
-  ```bash
-  npm run dev
-  ```
-* **Producción o Arranque Estándar**:
-  ```bash
-  npm start
-  ```
+### 2. Start the Server
 
-El demo estará disponible inmediatamente en tu navegador:
-👉 **[http://localhost:8080](http://localhost:8080)**
+Development mode, with automatic restart on changes via Node.js `--watch`:
+
+```bash
+npm run dev
+```
+
+Standard startup:
+
+```bash
+npm start
+```
+
+The demo will be available at:
+
+[http://localhost:8080](http://localhost:8080)
 
 > [!TIP]
-> Puedes cambiar el puerto por defecto estableciendo la variable de entorno `PORT`:
-> * **Linux / macOS (Bash)**: `PORT=3000 npm start`
-> * **Windows (PowerShell)**: `$env:PORT = 3000; npm start`
+> You can change the default port with the `PORT` environment variable:
+>
+> - **Linux / macOS (Bash)**: `PORT=3000 npm start`
+> - **Windows (PowerShell)**: `$env:PORT = 3000; npm start`
 
 ---
 
-## 🔑 Gestión Dinámica de Credenciales
+## Dynamic Credential Management
 
 > [!IMPORTANT]
-> **¡No necesitas configurar archivos a mano!**
-> 
-> 1. **Auto-generación de `.env`**: Al iniciar el servidor por primera vez, este detectará la ausencia del archivo `.env` y lo creará automáticamente con credenciales Sandbox públicas preconfiguradas para que puedas probar todo el flujo de checkout de inmediato.
-> 2. **Administrador de Credenciales (UI)**: Si deseas utilizar tus propias credenciales de Sandbox o producción (Live), simplemente haz clic en el botón **CREDS** en el panel de control interactivo de la interfaz de usuario. Este modal te permite ver, modificar y guardar tus claves directamente en el archivo `.env` en caliente, sin necesidad de abrir un editor de texto ni reiniciar el servidor.
+> You do not need to configure files manually for the first run.
+>
+> 1. **Automatic `.env` generation**: when the server starts for the first time, it detects that `.env` is missing and creates it automatically with preconfigured public Sandbox demo credentials, so you can test the checkout flow immediately.
+> 2. **Credential Manager UI**: to use your own Sandbox or Live credentials, click the **CREDS** button in the UI control panel. The modal lets you view, edit, and save keys directly to `.env` while the server is running, without opening a text editor or restarting the server.
 
 ---
 
-## ⚙️ Controles e Interacción en la UI
+## UI Controls and Interaction
 
-La interfaz incluye un panel de control interactivo en la parte superior izquierda que permite alterar dinámicamente el comportamiento de la integración sin modificar código:
+The UI includes an interactive control panel in the top-left area. It lets you change integration behavior dynamically without editing code.
 
-| Control | Descripción | Acción e Impacto |
+| Control | Description | Action and Impact |
 | :--- | :--- | :--- |
-| **ENV** | Selector de Entorno | Alterna entre **Sandbox** y **Live**. Se guarda en `localStorage` y reinicia el SDK. |
-| **Neg Test** | Pruebas Negativas | Inyecta respuestas simuladas de error (`INSTRUMENT_DECLINED`, `TRANSACTION_REFUSED`) en el Capture. |
-| **Currency** | Moneda de Pago | Alterna la moneda de la orden entre **MXN** y **USD**. |
-| **AMT** | Monto de la Orden | Define el valor total del carrito de compras simulado. |
-| **CREDS** | Administrador de Credenciales | Abre un modal para ver, ingresar y modificar las claves del archivo `.env` en caliente. |
-| **Reset** | Reinicio Completo | Limpia el estado de la UI, recarga la configuración del SDK y reinicia los botones de pago. |
+| **ENV** | Environment selector | Switches between **Sandbox** and **Live**. The value is stored in `localStorage` and the SDK is reset. |
+| **Neg Test** | Negative testing | Injects simulated error responses (`INSTRUMENT_DECLINED`, `TRANSACTION_REFUSED`) during capture. |
+| **Currency** | Payment currency | Switches the order currency between **MXN** and **USD**. |
+| **AMT** | Order amount | Defines the total value of the simulated shopping cart. |
+| **CREDS** | Credential manager | Opens a modal to view, enter, and update `.env` credentials while the app is running. |
+| **Reset** | Full reset | Clears UI state, reloads SDK configuration, and reinitializes the payment buttons. |
 
 ---
 
-## 🧪 Pruebas Negativas (Negative Testing)
+## Negative Testing
 
-El selector **Neg Test** permite simular fallos comunes en las APIs de PayPal durante la fase de captura (`Capture`), lo cual es indispensable para probar flujos de recuperación en el frontend (como declinaciones de emisor o fallas de riesgo).
+The **Neg Test** selector simulates common PayPal API failures during the capture phase. This is useful for testing frontend recovery flows such as issuer declines or risk refusals.
 
-Al activar un valor, el BFF añade el encabezado `PayPal-Mock-Response` en la llamada a PayPal:
+When a value is selected, the BFF adds the `PayPal-Mock-Response` header to the PayPal capture call:
 
-| Opción Seleccionada | Encabezado Mock Enviado | Simulación / Comportamiento esperado |
+| Selected Option | Mock Header Sent | Expected Simulation / Behavior |
 | :--- | :--- | :--- |
-| **`NO`** | *(Ninguno)* | Procesamiento de flujo real normal. |
-| **`Issuer`** | `{"mock_application_codes":"INSTRUMENT_DECLINED"}` | Simula tarjeta rechazada por el banco emisor. Permite probar la recuperación automática de BCDC. |
-| **`Risk`** | `{"mock_application_codes":"TRANSACTION_REFUSED"}` | Simula transacción rechazada por el motor de riesgo de PayPal. |
+| **`NO`** | *(None)* | Normal real-flow processing. |
+| **`Issuer`** | `{"mock_application_codes":"INSTRUMENT_DECLINED"}` | Simulates a card declined by the issuing bank. Useful for testing BCDC recovery. |
+| **`Risk`** | `{"mock_application_codes":"TRANSACTION_REFUSED"}` | Simulates a transaction refused by PayPal's risk engine. |
 
 ---
 
-## 🔌 Catálogo de Endpoints Locales (BFF API)
+## Local Endpoint Catalog (BFF API)
 
-El servidor Express expone una API limpia para desacoplar las interacciones del frontend con la API REST de PayPal:
+The Express server exposes a clean API that decouples frontend interactions from the PayPal REST API:
 
-| Método | Endpoint | Descripción | Payload / Comportamiento |
+| Method | Endpoint | Description | Payload / Behavior |
 | :--- | :--- | :--- | :--- |
-| **`GET`** | `/api/config` | Configuración del SDK | Retorna variables públicas (`clientId`, `apiBase`, `sdkUrl`) según el entorno seleccionado. |
-| **`GET`** | `/api/credentials` | Lectura de credenciales | Obtiene los datos del archivo `.env` (excluyendo o enmascarando parcialmente en producción, expuesto en demo). |
-| **`POST`** | `/api/credentials` | Escritura de credenciales | Guarda nuevas credenciales en `.env`, borra la caché OAuth en memoria y fuerza la recarga del SDK en el browser. |
-| **`POST`** | `/api/oauth/token` | Refresco de token OAuth | Solicita manualmente un access token a PayPal para fines de diagnóstico. |
-| **`POST`** | `/api/orders` | Creación de orden | Genera una orden de compra en PayPal. Si hay `merchant_id` configurado, envía automáticamente STC. |
-| **`GET`** | `/api/orders/:id` | Consulta de orden | Consulta el estado detallado de una orden. Retorna campos enriquecidos de la fuente de pago. |
-| **`POST`** | `/api/orders/:id/capture` | Captura de orden | Realiza el cobro final de la orden. Soporta simulación mediante headers de pruebas negativas. |
-| **`PUT`** | `/api/stc` | Envío manual de STC | Permite enviar el Sender Transaction Context de forma explícita fuera del flujo de creación de orden. |
+| **`GET`** | `/api/config` | SDK configuration | Returns public variables (`clientId`, `apiBase`, `sdkUrl`) for the selected environment. |
+| **`GET`** | `/api/credentials` | Credential read | Reads values from `.env`. This is exposed only for demo convenience. |
+| **`POST`** | `/api/credentials` | Credential write | Saves new credentials to `.env`, clears the in-memory OAuth cache, and forces the browser SDK configuration to reload. |
+| **`POST`** | `/api/oauth/token` | OAuth token refresh | Manually requests an access token from PayPal for diagnostics. |
+| **`POST`** | `/api/orders` | Order creation | Creates a PayPal order. If `merchant_id` is configured, the server automatically sends STC. |
+| **`GET`** | `/api/orders/:id` | Order lookup | Fetches detailed order state and enriched payment-source fields. |
+| **`POST`** | `/api/orders/:id/capture` | Order capture | Performs the final charge. Supports negative-testing simulation headers. |
+| **`PUT`** | `/api/stc` | Manual STC send | Sends Sender Transaction Context explicitly outside the order creation flow. |
 
-### 📝 Estructura de Respuesta del Proxy
-Las respuestas de operaciones REST (`POST /api/orders`, `POST /api/orders/:id/capture`, etc.) tienen un formato estandarizado que incluye trazas de diagnóstico simplificadas:
+### Proxy Response Shape
+
+REST operation responses (`POST /api/orders`, `POST /api/orders/:id/capture`, and similar endpoints) use a standardized shape with simplified diagnostic traces:
 
 ```json
 {
@@ -186,58 +195,62 @@ Las respuestas de operaciones REST (`POST /api/orders`, `POST /api/orders/:id/ca
     "method": "POST",
     "endpoint": "https://api-m.sandbox.paypal.com/v2/checkout/orders",
     "status": 201,
-    "request": { ... },
-    "response": { ... }
+    "request": { "...": "..." },
+    "response": { "...": "..." }
   },
-  "data": { ... }
+  "data": { "...": "..." }
 }
 ```
-* **`oauthLog`**: Contiene la traza de la llamada de autenticación en caso de que el token haya expirado o no existiera en caché.
-* **`stcLog`**: Contiene la traza de la llamada a `PUT /v1/risk/transaction-contexts` al enviar datos de prevención de fraude.
+
+- **`oauthLog`**: contains the authentication call trace when the token was missing or expired.
+- **`stcLog`**: contains the `PUT /v1/risk/transaction-contexts` trace when fraud-prevention data is sent.
 
 ---
 
-## 🔒 Seguridad y Enmascaramiento de Datos
+## Security and Data Masking
 
 > [!IMPORTANT]
-> Para fines didácticos, el panel de logs de la interfaz de usuario muestra el flujo completo de Request y Response de cada llamada HTTP. Sin embargo, para cumplir con mejores prácticas de seguridad, el servidor aplica un enmascaramiento estricto sobre datos sensibles antes de transmitirlos al navegador.
+> For learning and diagnostics, the UI log panel shows the request and response flow for each HTTP call. However, the server applies strict masking to sensitive data before sending logs to the browser.
 
-### Lógica de Enmascaramiento
-Cualquier campo que coincida con las siguientes claves sensibles conserva únicamente sus **primeros 5 caracteres** y reemplaza todo lo restante por asteriscos (`*`), preservando la longitud y formato general:
-* `access_token`, `refresh_token`, `id_token`
-* `client_secret`, `clientSecret`
-* `Authorization` (el prefijo `Basic ` o `Bearer ` se conserva legible, y solo se enmascara el token base64/JWT)
-* `nonce`
-* `app_id`, `appId`
+### Masking Logic
 
----
+Any field matching the following sensitive keys keeps only its **first 5 characters** and replaces the rest with asterisks (`*`), preserving the general length and shape:
 
-## 💡 Detalles Técnicos de Implementación
-
-1. **Prevención de Cache Estático**: `server.js` deshabilita el cache HTTP para archivos estáticos (`index.html`, `app.js`, `styles.css`) con encabezados `Cache-Control: no-store`. Esto evita problemas de refresco de interfaz en entornos de desarrollo local.
-2. **Caché Eficiente de Access Tokens**: Los tokens de acceso se almacenan en la memoria del servidor por entorno (`sandbox` y `live`), autolimpiándose antes de su tiempo de expiración (generalmente 9 horas).
-3. **Generación Robustecida de IDs**:
-   * **`PayPal-Request-Id`**: Se regenera de forma independiente en cada solicitud de creación y captura de orden para evitar colisiones e idempotencia accidental en reintentos legítimos.
-   * **`cmid`**: El identificador de cliente en riesgo/STC se genera dinámicamente en el browser y se valida del lado del servidor para garantizar que no exceda el límite de 32 caracteres alfanuméricos impuesto por PayPal.
-4. **Fallback SPA**: Cualquier petición no capturada por las rutas API (`GET *`) devuelve `index.html`. Esto permite implementar ruteo del lado del cliente en el frontend con fluidez.
+- `access_token`, `refresh_token`, `id_token`
+- `client_secret`, `clientSecret`
+- `Authorization` (the `Basic ` or `Bearer ` prefix remains readable; only the base64/JWT credential is masked)
+- `nonce`
+- `app_id`, `appId`
 
 ---
 
-## 📚 Documentación Avanzada Incluida
+## Technical Implementation Details
 
-En la carpeta [`docs_and_skill/`](file:///c:/Users/migue/OneDrive/Desktop/Proyectos/JSV6%20CHECKOUT%20BCDC/docs_and_skill/) encontrarás la documentación de diseño oficial de la solución:
-* **Español**: [SDD_JSV6_ES.md](file:///c:/Users/migue/OneDrive/Desktop/Proyectos/JSV6%20CHECKOUT%20BCDC/docs_and_skill/SDD_JSV6_ES.md) (y su versión [PDF](file:///c:/Users/migue/OneDrive/Desktop/Proyectos/JSV6%20CHECKOUT%20BCDC/docs_and_skill/SDD_JSV6_ES.pdf)).
-* **Inglés**: [SDD_JSV6_EN.md](file:///c:/Users/migue/OneDrive/Desktop/Proyectos/JSV6%20CHECKOUT%20BCDC/docs_and_skill/SDD_JSV6_EN.md) (y su versión [PDF](file:///c:/Users/migue/OneDrive/Desktop/Proyectos/JSV6%20CHECKOUT%20BCDC/docs_and_skill/SDD_JSV6_EN.pdf)).
-* **Skill de IA**: El archivo [jsv6-bcdc-integration.skill](file:///c:/Users/migue/OneDrive/Desktop/Proyectos/JSV6%20CHECKOUT%20BCDC/docs_and_skill/jsv6-bcdc-integration.skill) permite a agentes inteligentes de desarrollo como Antigravity entender y extender el demo con precisión quirúrgica.
+1. **Static cache prevention**: `server.js` disables HTTP caching for static files (`index.html`, `app.js`, `styles.css`) using `Cache-Control: no-store`. This avoids stale UI issues during local development.
+2. **Efficient access-token cache**: access tokens are stored in server memory per environment (`sandbox` and `live`) and refreshed shortly before expiration.
+3. **Robust ID generation**:
+   - **`PayPal-Request-Id`**: generated independently for each order create and capture request to avoid collisions and accidental idempotency during legitimate retries.
+   - **`cmid`**: the risk/STC client metadata ID is generated dynamically in the browser and validated server-side to ensure it stays within PayPal's 32-character alphanumeric limit.
+4. **SPA fallback**: any non-API request (`GET *`) returns `index.html`, allowing smooth client-side routing if the frontend is extended later.
 
 ---
 
-## ⚠️ Consideraciones Críticas para Producción
+## Included Advanced Documentation
 
-Este proyecto es un demo técnico de referencia. Antes de desplegarlo en un entorno productivo real, debes implementar las siguientes mejoras de seguridad y arquitectura:
+The [`docs_and_skill/`](docs_and_skill/) folder contains the official solution design documentation:
 
-1. **Eliminar o Proteger endpoints de credenciales**: Las rutas `/api/credentials` (tanto `GET` como `POST`) no deben estar expuestas públicamente. En producción, las variables de entorno deben definirse a nivel sistema o mediante un proveedor de gestión de secretos (como AWS Secrets Manager, Vault, etc.).
-2. **Autenticación y CORS**: Restringe los orígenes permitidos en las llamadas al servidor (CORS) y asegura que todas las llamadas de checkout requieran una sesión activa de usuario.
-3. **Protección CSRF**: Implementa tokens Anti-CSRF en peticiones de mutación del checkout (`POST /api/orders`).
-4. **HTTPS Obligatorio**: PayPal requiere comunicación segura SSL/TLS (HTTPS) para el funcionamiento correcto del SDK en entornos productivos.
-5. **Datos del Comprador Reales**: Reemplaza los datos mockeados del pagador, dirección de envío y montos del carrito definidos en `server.js` y `app.js` por las variables reales de tu plataforma de e-commerce.
+- **Spanish**: [SDD_JSV6_ES.md](docs_and_skill/SDD_JSV6_ES.md) and its [PDF version](docs_and_skill/SDD_JSV6_ES.pdf).
+- **English**: [SDD_JSV6_EN.md](docs_and_skill/SDD_JSV6_EN.md) and its [PDF version](docs_and_skill/SDD_JSV6_EN.pdf).
+- **AI skill**: [jsv6-bcdc-integration.skill](docs_and_skill/jsv6-bcdc-integration.skill) lets AI development agents understand and extend the demo with high precision.
+
+---
+
+## Critical Production Considerations
+
+This project is a reference technical demo. Before deploying it to a real production environment, implement at least the following security and architecture improvements:
+
+1. **Remove or protect credential endpoints**: `/api/credentials` (`GET` and `POST`) must not be publicly exposed. In production, environment variables should be defined at the platform level or through a secrets manager such as AWS Secrets Manager, Vault, or equivalent tooling.
+2. **Authentication and CORS**: restrict allowed origins for server calls and ensure checkout calls require an active user session.
+3. **CSRF protection**: implement anti-CSRF tokens for checkout mutation requests such as `POST /api/orders`.
+4. **Mandatory HTTPS**: PayPal requires secure SSL/TLS communication (HTTPS) for correct SDK behavior in production environments.
+5. **Real buyer data**: replace mocked payer, shipping-address, and cart-amount data in `server.js` and `app.js` with real values from your e-commerce platform.
